@@ -8,6 +8,7 @@ import json
 import os
 import pandas as pd
 import requests
+import sys
 import threading
 import twint
 from datetime import datetime, timedelta
@@ -79,7 +80,7 @@ class TWITTER:
 		since = since.strftime('%Y-%m-%d %H:%M:%S')
 		until = end_date + timedelta(hours=8)
 		until = until.strftime('%Y-%m-%d %H:%M:%S')
-		print('Twitter got {} {} - {}'.format(symbol['symbol'], since, until))
+		print('Twitter start {} {}'.format(symbol['symbol'], since))
 
 		# Get data
 		c = twint.Config()
@@ -96,9 +97,10 @@ class TWITTER:
 		c.Min_retweets = 1
 		c.Hide_output = True
 		c.Store_csv = True
+		c.Retries_count = 1000000
 		twint.run.Search(c)
 
-		print('Twitter done {}'.format(symbol['symbol']))
+		print('Twitter done {} {}'.format(symbol['symbol'], until))
 
 	def download_tweets(self, symbol):
 		last_date = datetime.strptime('2011-03-01', '%Y-%m-%d')
@@ -109,16 +111,15 @@ class TWITTER:
 	def work(self, jobs):
 		while not jobs.empty():
 			kwargs = jobs.get()
-			print('Twitter start {}'.format(kwargs['symbol']['symbol']))
 			self.download_tweets(**kwargs)
 			jobs.task_done()
 
 	def update(self, use_threads=False):
 		"""Warning: using threads might cross the rate limit and get you banned.
 		"""
+		symbols = get_symbols()
 		if use_threads:
 			jobs = Queue()
-			symbols = get_symbols()
 			for symbol in symbols:
 				jobs.put({'symbol':symbol})
 			for _ in range(NUM_WORKERS):
@@ -126,7 +127,6 @@ class TWITTER:
 				worker.start()
 			jobs.join()
 		else:
-			symbols = get_symbols()
 			for symbol in symbols:
 				self.download_tweets(symbol)
 		print('Twitter update complete')
@@ -241,6 +241,7 @@ class REDDIT:
 		last_time = 0;
 		if os.path.isfile(filename):
 			last_time = self.get_last_time(filename)
+		print('Reddit start {} {} {}'.format(symbol['symbol'], post_type, last_time))
 
 		# Run until CSV is up-to-date
 		while True:
@@ -253,7 +254,7 @@ class REDDIT:
 
 			# CSV is up-to-date
 			if len(data) == 0:
-				print('Reddit done {} {}'.format(symbol['symbol'], post_type))
+				print('Reddit done {} {} {}'.format(symbol['symbol'], post_type, last_time))
 				break
 
 			# Set latest time
@@ -268,7 +269,6 @@ class REDDIT:
 	def work(self, jobs):
 		while not jobs.empty():
 			kwargs = jobs.get()
-			print('Reddit start {} {}'.format(kwargs['symbol']['symbol'], kwargs['post_type']))
 			self.download_data(**kwargs)
 			jobs.task_done()
 
@@ -278,17 +278,32 @@ class REDDIT:
 		for symbol in symbols:
 			jobs.put({'symbol':symbol, 'post_type':'submission'})
 			jobs.put({'symbol':symbol, 'post_type':'comment'})
-
 		for _ in range(NUM_WORKERS):
 			worker = threading.Thread(target=self.work, args=[jobs])
 			worker.start()
-
 		jobs.join()
 		print('Reddit update complete')
 
-if __name__ == '__main__':
+def update_twitter():
+	twitter = TWITTER(directory='twitter_data')
+	twitter.update()
+
+def update_reddit():
 	reddit = REDDIT(subreddit='wallstreetbets', directory='reddit_data')
 	reddit.update()
 
-	twitter = TWITTER(directory='twitter_data1')
-	twitter.update()
+if __name__ == '__main__':
+	opts = [opt for opt in sys.argv[1:] if opt.startswith("-")]
+
+	if "-t" in opts:
+		update_twitter()
+	elif "-r" in opts:
+		update_reddit()
+	elif "-a" in opts:
+		update_twitter()
+		update_reddit()
+	else:
+		print('Please specify a platform to download.\n' +
+			'Twitter: `-t`, Reddit: `-r`, all: `-a`')
+
+

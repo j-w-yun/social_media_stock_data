@@ -11,7 +11,17 @@ cd twint
 pip3 install . -r requirements.txt
 ```
 
-Run to write/update `reddit_data` and `twitter_data`
+Run to write/update `reddit_data`
 ```
-python scrape_social.py
+python scrape_social.py -r
+```
+
+Run to write/update `twitter_data`
+```
+python scrape_social.py -t
+```
+
+Run to write/update both `reddit_data` and `twitter_data`
+```
+python scrape_social.py -a
 ```
