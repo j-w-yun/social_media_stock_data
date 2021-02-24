@@ -10,11 +10,16 @@ pip install stem==1.8.0
 ```
 
 Requires tor. Without it to bypass rate limits, downloading this dataset could take months.
-Set SOCKS proxy on port 9050.
-Set controller on port 9051.
+
+Set SOCKS proxy on port 9050. Set controller on port 9051.
 ```
 # Set controller password as environmental variable
 export TOR_CONTROLLER_PW="your_password_here"
+```
+
+Set the Subreddit to scrape.
+```
+reddit = REDDIT(directory='reddit_data', subreddit='wallstreetbets')
 ```
 
 Run to write/update `reddit_data`

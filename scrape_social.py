@@ -86,9 +86,6 @@ class TWITTER:
 		return data['new_date'].max()
 
 	def _download_tweets(self, symbol, start_date, end_date):
-		# if symbol['symbol'] != 'AAPL':
-		# 	return
-
 		filename = self.get_filename(symbol['symbol'])
 		output_dir = os.path.join(*filename.split(os.path.sep)[:-1])
 
@@ -110,9 +107,6 @@ class TWITTER:
 		c.Since = since
 		c.Until = until
 		c.Output = output_dir
-		# c.Limit = 100000000
-		# c.Profile_full = True
-		# c.User_full = True
 		c.Lang = 'en'
 		c.Count = False
 		c.Stats = False
@@ -120,11 +114,8 @@ class TWITTER:
 		c.Hide_output = True
 		c.Store_csv = True
 		c.Proxy_host = 'tor'
-		# c.Proxy_port = 9050
-		# c.Proxy_type = 'socks5'
-		# c.Retries_count = 1000000
 		c.Tor_control_port = 9051
-		c.Tor_control_password = 'jjwy3177'
+		c.Tor_control_password = os.environ.get('TOR_CONTROLLER_PW')
 		twint.run.Search(c)
 
 		print('Twitter done {} {}'.format(symbol['symbol'], until))
