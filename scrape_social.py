@@ -15,9 +15,31 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from queue import Queue
 
+import time
+from stem import Signal
+from stem.control import Controller
 
-NUM_WORKERS = 16
-SYMBOL_TABLE = 'symbol_data/symbol_data.csv'
+
+NUM_WORKERS = 32
+SYMBOL_TABLE = 'symbol_data/symbol_table.csv'
+
+def get_tor_session():
+	"""Use the tor network as a proxy.
+	"""
+	session = requests.session()
+	session.proxies = {
+		'http': 'socks5://127.0.0.1:9050',
+		'https': 'socks5://127.0.0.1:9050',
+	}
+	return session
+
+def renew_connection():
+	"""Establish a clean pathway through the tor network.
+	"""
+	with Controller.from_port(port=9051) as c:
+		password = os.environ.get('TOR_CONTROLLER_PW')
+		c.authenticate(password=password)
+		c.signal(Signal.NEWNYM)
 
 def get_symbols():
 	"""Get all symbols.
@@ -48,7 +70,7 @@ def fs_encode(symbol):
 	return res
 
 class TWITTER:
-	def __init__(self, directory='twitter_data'):
+	def __init__(self, directory):
 		self.directory = directory
 
 	def get_filename(self, symbol):
@@ -97,7 +119,12 @@ class TWITTER:
 		c.Min_retweets = 1
 		c.Hide_output = True
 		c.Store_csv = True
-		c.Retries_count = 1000000
+		c.Proxy_host = 'tor'
+		# c.Proxy_port = 9050
+		# c.Proxy_type = 'socks5'
+		# c.Retries_count = 1000000
+		c.Tor_control_port = 9051
+		c.Tor_control_password = 'jjwy3177'
 		twint.run.Search(c)
 
 		print('Twitter done {} {}'.format(symbol['symbol'], until))
@@ -114,7 +141,7 @@ class TWITTER:
 			self.download_tweets(**kwargs)
 			jobs.task_done()
 
-	def update(self, use_threads=False):
+	def update(self, use_threads=True):
 		"""Warning: using threads might cross the rate limit and get you banned.
 		"""
 		symbols = get_symbols()
@@ -144,7 +171,7 @@ class TWITTER:
 		return data
 
 class REDDIT:
-	def __init__(self, subreddit, directory='reddit_data', delimiter='|'):
+	def __init__(self, directory, subreddit, delimiter='|'):
 		self.subreddit = subreddit
 		self.directory = directory
 		self.delimiter = delimiter
@@ -173,6 +200,8 @@ class REDDIT:
 	def save_data(self, data, filename, post_type):
 		"""Append data to csv.
 		"""
+		file_exists = os.path.exists(filename)
+
 		# Create data path
 		path = filename.split(os.path.sep)
 		cur_path = ''
@@ -190,7 +219,7 @@ class REDDIT:
 
 			dw = csv.DictWriter(f, delimiter=self.delimiter, extrasaction='ignore', fieldnames=fieldnames)
 			# dw = csv.DictWriter(f, delimiter=self.delimiter, fieldnames=self.comment_fieldnames)
-			if not os.path.exists(filename):
+			if not file_exists:
 				dw.writeheader()
 			for datum in data:
 				dw.writerow(datum)
@@ -211,9 +240,16 @@ class REDDIT:
 			'score': '>1',
 			'q': query,
 		}
+		# url = self.url.format(post_type)
+		# res = requests.get(url, params=params)
+		# if res.status_code != 200:
+		# 	return None
 
+		renew_connection()
+		session = get_tor_session()
+		time.sleep(1)
 		url = self.url.format(post_type)
-		res = requests.get(url, params=params)
+		res = session.get(url, params=params)
 		if res.status_code != 200:
 			return None
 
@@ -289,7 +325,7 @@ def update_twitter():
 	twitter.update()
 
 def update_reddit():
-	reddit = REDDIT(subreddit='wallstreetbets', directory='reddit_data')
+	reddit = REDDIT(directory='reddit_data', subreddit='wallstreetbets')
 	reddit.update()
 
 if __name__ == '__main__':
@@ -305,5 +341,3 @@ if __name__ == '__main__':
 	else:
 		print('Please specify a platform to download.\n' +
 			'Twitter: `-t`, Reddit: `-r`, all: `-a`')
-
-

@@ -5,10 +5,16 @@ Dependencies
 ```
 pip install pandas==1.2.2
 pip install requests==2.25.1
+pip install stem==1.8.0
+...
+```
 
-git clone --depth=1 https://github.com/twintproject/twint.git
-cd twint
-pip3 install . -r requirements.txt
+Requires tor. Without it to bypass rate limits, downloading this dataset could take months.
+Set SOCKS proxy on port 9050.
+Set controller on port 9051.
+```
+# Set controller password as environmental variable
+export TOR_CONTROLLER_PW="your_password_here"
 ```
 
 Run to write/update `reddit_data`
