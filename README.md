@@ -1,5 +1,5 @@
 # social_media_stock_data
-Scrape historical Subreddit posts and Tweets related to stock symbols and company names.
+Scrape historical Subreddit submissions and comments and Tweets related to stock symbols and company names.
 
 Dependencies
 ```
@@ -9,9 +9,13 @@ pip install stem==1.8.0
 ...
 ```
 
-Requires tor. Without it to bypass rate limits, downloading this dataset could take months.
+Requires tor.
 
-Set SOCKS proxy on port 9050. Set controller on port 9051.
+Without it to bypass rate limits, downloading this dataset could take months.
+
+Set SOCKS proxy on port 9050.
+
+Set controller on port 9051.
 ```
 # Set controller password as environmental variable
 export TOR_CONTROLLER_PW="your_password_here"
