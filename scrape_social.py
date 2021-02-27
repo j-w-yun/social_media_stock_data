@@ -20,9 +20,9 @@ from stem.control import Controller
 from queue import Queue
 
 
-NUM_WORKERS = 4
+NUM_WORKERS = 64
 SYMBOL_TABLE = 'symbol_data/symbol_table.csv'
-COMMON_SYMBOLS = ['ALL', 'ANY', 'BIG', 'BRO', 'BUY', 'CALM', 'CAN', 'CAP', 'DIET', 'DIG', 'DIM', 'DOG', 'DROP', 'EAT', 'EDIT', 'FAME', 'FAN', 'FAST', 'FAT', 'FATE', 'FIVE', 'FLOW', 'FOUR', 'FUD', 'FUN', 'GOLD', 'GOOD', 'HEAR', 'HOLD', 'HOME', 'HOPE', 'JOB', 'JUST', 'KEY', 'KEYS', 'KNOW', 'LAWS', 'LAZY', 'LIFE', 'LOAN', 'LOVE', 'MOM', 'MOON', 'NEAR', 'NEED', 'NERD', 'NEW', 'NEXT', 'NICE', 'NINE', 'NOW', 'ONE', 'OUT', 'PLAN', 'PLAY', 'PUMP', 'ROLL', 'ROOF', 'ROOT', 'SACH', 'SAFE', 'SAIL', 'SAND', 'SALT', 'SAVE', 'SEE', 'SEED', 'SEEK', 'SIX', 'SNOW', 'SO', 'SUB', 'SUP', 'TELL', 'TEN', 'TRUE', 'TWO', 'UNIT', 'VERY', 'WELL', 'WHEN', 'WOW', 'YOLO']
+COMMON_SYMBOLS = ['ALL', 'ANY', 'BIG', 'BRO', 'BUY', 'CALM', 'CAN', 'CAP', 'ECO', 'DIET', 'DIG', 'DIM', 'DOG', 'DROP', 'EAT', 'EDIT', 'FAME', 'FAN', 'FAST', 'FAT', 'FATE', 'FIVE', 'FLOW', 'FOUR', 'FUD', 'FUN', 'GOLD', 'GOOD', 'HEAR', 'HOLD', 'HOME', 'HOPE', 'IT', 'JOB', 'JUST', 'KEY', 'KEYS', 'KNOW', 'LAWS', 'LAZY', 'LIFE', 'LOAN', 'LOVE', 'MOM', 'MOON', 'NEAR', 'NEED', 'NERD', 'NEW', 'NEXT', 'NICE', 'NINE', 'NOW', 'ONE', 'OUT', 'PLAN', 'PLAY', 'PUMP', 'ROLL', 'ROOF', 'ROOT', 'SACH', 'SAFE', 'SAIL', 'SAND', 'SALT', 'SAVE', 'SEE', 'SEED', 'SEEK', 'SIX', 'SNOW', 'SO', 'SUB', 'SUP', 'TELL', 'TEN', 'TRUE', 'TWO', 'UNIT', 'VERY', 'WELL', 'WHEN', 'WOW', 'YELL', 'YOLO']
 COMMON_SYMBOLS = [i.lower() for i in COMMON_SYMBOLS]
 START_FROM = 'A'
 
@@ -36,9 +36,8 @@ class Tor:
 		if renew:
 			self.renew_connection()
 
-		# while self.is_tor_renewing:
-		# 	print('get_tor_session: waiting to finish renewing')
-		# 	time.sleep(0.1)
+		while self.is_tor_renewing:
+			time.sleep(0.1)
 
 		session = requests.session()
 		session.proxies = {
@@ -51,7 +50,7 @@ class Tor:
 		"""Establish a clean pathway through the tor network.
 		"""
 		while self.is_tor_renewing:
-			time.sleep(0.1)
+			time.sleep(0.2)
 
 		self.is_tor_renewing = True
 		with Controller.from_port(port=9051) as c:
@@ -238,6 +237,9 @@ class REDDIT:
 
 	def _download_data(self, symbol, post_type, start_time=0, session=None):
 		queries = []
+
+		# Cashtag
+		queries.append('${}'.format(symbol['symbol']))
 
 		# Skip one letter symbols
 		sym = symbol['symbol'].lower()
