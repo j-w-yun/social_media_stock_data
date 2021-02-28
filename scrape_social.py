@@ -15,6 +15,7 @@ import time
 import twint
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+from nltk.corpus import words as en_words
 from stem import Signal
 from stem.control import Controller
 from queue import Queue
@@ -23,7 +24,6 @@ from queue import Queue
 NUM_WORKERS = 64
 SYMBOL_TABLE = 'symbol_data/symbol_table.csv'
 COMMON_SYMBOLS = ['ALL', 'ANY', 'BIG', 'BRO', 'BUY', 'CALM', 'CAN', 'CAP', 'ECO', 'DIET', 'DIG', 'DIM', 'DOG', 'DROP', 'EAT', 'EDIT', 'FAME', 'FAN', 'FAST', 'FAT', 'FATE', 'FIVE', 'FLOW', 'FOUR', 'FUD', 'FUN', 'GOLD', 'GOOD', 'HEAR', 'HOLD', 'HOME', 'HOPE', 'IT', 'JOB', 'JUST', 'KEY', 'KEYS', 'KNOW', 'LAWS', 'LAZY', 'LIFE', 'LOAN', 'LOVE', 'MOM', 'MOON', 'NEAR', 'NEED', 'NERD', 'NEW', 'NEXT', 'NICE', 'NINE', 'NOW', 'ONE', 'OUT', 'PLAN', 'PLAY', 'PUMP', 'ROLL', 'ROOF', 'ROOT', 'SACH', 'SAFE', 'SAIL', 'SAND', 'SALT', 'SAVE', 'SEE', 'SEED', 'SEEK', 'SIX', 'SNOW', 'SO', 'SUB', 'SUP', 'TELL', 'TEN', 'TRUE', 'TWO', 'UNIT', 'VERY', 'WELL', 'WHEN', 'WOW', 'YELL', 'YOLO']
-COMMON_SYMBOLS = [i.lower() for i in COMMON_SYMBOLS]
 START_FROM = 'A'
 
 class Tor:
@@ -61,6 +61,25 @@ class Tor:
 
 
 tor = Tor()
+
+class Dictionary:
+	def __init__(self):
+		try:
+			self.initialize()
+		except LookupError:
+			import nltk
+			nltk.download('words')
+			self.initialize()
+
+	def initialize(self):
+		self.lower_en_words = [w.lower() for w in en_words.words()]
+
+	def is_word(self, word):
+		"""Check if word exists in the English dictionary.
+		"""
+		return word.lower() in self.lower_en_words
+
+dictionary = Dictionary()
 
 def get_symbols():
 	"""Get all symbols.
@@ -235,117 +254,94 @@ class REDDIT:
 			for datum in data:
 				dw.writerow(datum)
 
-	def _download_data(self, symbol, post_type, start_time=0, session=None):
+	def _to_company_name(self, orig_name):
+		name = orig_name.split(',')[0]
+		name = name.lower()
+		name = name.strip()
+		words = []
+
+		break_on_word = False
+		split_name = name.split()
+		for i, word in enumerate(split_name):
+			# Skip articles
+			if len(words) == 0 and word in ['a', 'an', 'the']:
+				continue
+			# Break on English word after observing non-English word
+			if not dictionary.is_word(word):
+				if len(words) > 0:
+					break_on_word = True
+			elif break_on_word:
+				break
+			words.append(word)
+
+		remove_words = [
+			'corporation',
+			'corp',
+			'cor',
+			'etf',
+			'incorporated',
+			'inc',
+			'limited',
+			'ltd',
+		]
+		if len(words) > 0:
+			last_word = words[-1].replace('.', '')
+			if last_word in remove_words or len(last_word) <= 2:
+				words = words[:-1]
+
+		# Join name
+		name = ' '.join(words)
+
+		# Replace ambiguous name
+		if len(name) <= 3:
+			name = orig_name.replace(',', '')
+			name = orig_name.replace('.', '')
+			return name.lower()
+		return name
+
+	def _get_query_str(self, symbol):
 		queries = []
 
-		# Cashtag
-		queries.append('${}'.format(symbol['symbol']))
+		long_name = self._to_company_name(symbol['longName'])
+		if len(long_name) > 0:
+			queries.append(long_name)
+		short_name = self._to_company_name(symbol['shortName'])
+		if len(short_name) > 0:
+			queries.append(short_name)
 
-		# Skip one letter symbols
-		sym = symbol['symbol'].lower()
-		if len(sym) > 1 and sym not in COMMON_SYMBOLS:
-			queries.append(sym)
+		# Sort by length
+		sorted(queries, key=len)
 
-		short_name = symbol['shortName'].lower()
-		long_name = symbol['longName'].lower()
-		remove_words = [
-			# 'the ',
-			# ' acquisition',
-			# ' automotive',
-			# ' biopharma',
-			' company',
-			' corporation',
-			' corp',
-			' co.',
-			' etf',
-			' group',
-			' incorporated',
-			' inc',
-			' industries',
-			' limited',
-			' ltd',
-			' l.p.',
-			' s.a.',
-			# ' pharmaceuticals',
-			# ' pharma',
-			# ' research',
-			# ' trust',
-			',',
-			# '.',
-		]
-		for word in remove_words:
-			if word in short_name:
-				short_name = short_name[:short_name.index(word)]
-			if word in long_name:
-				long_name = long_name[:long_name.index(word)]
-			# short_name = short_name.replace(word, '')
-			# long_name = long_name.replace(word, '')
-
-		# short_name = short_name.strip()
-		# short_name = short_name.split(' ')
-		# if len(short_name) > 4:
-		# 	short_name = short_name[:-1]
-		# else:
-		# 	short_name = short_name[:2]
-		# short_name = ' '.join(short_name)
-		# if len(short_name) > 3:
-		# 	queries.append(short_name)
-
-		long_name = long_name.strip()
-		long_name = long_name.split(' ')
-		# Remove single letters
-		new_long_name = []
-		for n in long_name:
-			if len(n) > 1:
-				new_long_name.append(n)
-		long_name = new_long_name
-		# Join
-		long_name = ' '.join(long_name)
-		if (len(long_name) < 4 or
-			'of' in long_name):
-			long_name = None
-
-		short_name = short_name.strip()
-		short_name = short_name.split(' ')
-		# Remove single letters
-		new_short_name = []
-		for n in short_name:
-			if len(n) > 1:
-				new_short_name.append(n)
-		short_name = new_short_name
-		# Join
-		short_name = ' '.join(short_name)
-		if (len(short_name) < 4 or
-			'of' in short_name):
-			short_name = None
-
-		if long_name is not None and short_name is not None:
-			if len(long_name) > len(short_name) and short_name in long_name:
-				queries.append(short_name)
-			elif len(long_name) < len(short_name) and long_name in short_name:
-				queries.append(long_name)
-			else:
-				queries.append(short_name)
-
-		# sector = symbol['sector'].lower()
-		# industry = symbol['industry'].lower()
-		# industry = industry.split('—')[0]
-		# industry = industry.split('&')[0]
-		# industry = industry.strip()
-		# queries.append(sector)
-		# queries.append(industry)
-
+		# Remove duplicate strings and superstrings
 		query_set = []
 		for q in queries:
-			if len(q) > 1 and q not in query_set and q not in COMMON_SYMBOLS:
+			add_query = True
+			for unique in query_set:
+				if unique in q:
+					add_query = False
+			if add_query:
 				query_set.append(q)
+		return query_set
+
+	def _download_data(self, symbol, post_type, start_time=0, session=None):
+		query_set = self._get_query_str(symbol)
+
+		# Symbols with cashtag
+		detect_cashtag = False
+		if symbol['symbol'] in COMMON_SYMBOLS:
+			query_set.insert(0, '${}'.format(symbol['symbol']))
+			detect_cashtag = True
+		elif len(symbol['symbol']) > 1:
+			query_set.insert(0, symbol['symbol'])
+
 		query = '|'.join(query_set)
-		print('\t{}'.format(query), '==', '{}|{}|{}'.format(symbol['symbol'], symbol['shortName'], symbol['longName']))
 
 		# No query
-		if len(query_set) == 0:
-			print('No query {}|{}|{}'.format(symbol['symbol'], symbol['shortName'], symbol['longName']))
+		if len(query) == 0:
+			print('\tNo query {}|{}|{}'.format(symbol['symbol'], symbol['shortName'], symbol['longName']))
 			return []
+		# if post_type == 'comment':
+		print('\t{}'.format(query), '==', '{}|{}|{}'.format(symbol['symbol'], symbol['shortName'], symbol['longName']))
 
 		# Request
 		params = {
@@ -354,18 +350,15 @@ class REDDIT:
 			'sort': 'asc',
 			'sort_type': 'created_utc',
 			'after': start_time,
-			'score': '>1',
 			'q': query,
+			# 'score': '>1',
 		}
-		# url = self.url.format(post_type)
-		# res = requests.get(url, params=params)
-		# if res.status_code != 200:
-		# 	return None
 
 		if session is None:
 			raise Exception('Session is unspecified.')
 
 		url = self.url.format(post_type)
+		# res = requests.get(url, params=params)
 		res = session.get(url, params=params)
 		if res.status_code != 200:
 			return None
@@ -373,6 +366,40 @@ class REDDIT:
 		# Data is a list of dicts
 		data = res.json()['data']
 		# print(json.dumps(data[0], indent=4, sort_keys=True))
+
+		# Match symbol cashtag, if text contains it
+		if detect_cashtag:
+			new_data = []
+			for post in data:
+				is_valid_post = True
+				for attr in ['title', 'selftext', 'body']:
+					if attr not in post:
+						continue
+					# Check if something other than a symbol matched
+					matched_query_set = False
+					for q in query_set[1:]:
+						if q in post[attr].lower():
+							matched_query_set = True
+							break
+					# Check if exact cashtag symbol matches
+					if not matched_query_set:
+						cashtag = query_set[0].lower()
+						post_words = post[attr].lower()
+						post_words = post_words.replace(',', ' ')
+						post_words = post_words.replace(';', ' ')
+						post_words = post_words.replace('.', ' ')
+						post_words = post_words.split()
+						if symbol['symbol'].lower() in post[attr].lower() and cashtag not in post_words:
+							is_valid_post = False
+							break
+				# Append only valid posts
+				if is_valid_post:
+					new_data.append(post)
+			# Data is non zero but was filtered to zero
+			if len(new_data) == 0 and len(data) > 0:
+				return data
+			# Replace
+			data = new_data
 
 		# Sanitize values for csv
 		for i in range(len(data)):

@@ -3,6 +3,7 @@ Scrape historical Subreddit submissions and comments and Tweets related to stock
 
 Dependencies
 ```
+pip install nltk==3.5
 pip install pandas==1.2.2
 pip install requests==2.25.1
 pip install stem==1.8.0
