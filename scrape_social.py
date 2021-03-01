@@ -23,7 +23,7 @@ from queue import Queue
 
 NUM_WORKERS = 64
 SYMBOL_TABLE = 'symbol_data/symbol_table.csv'
-COMMON_SYMBOLS = ['ALL', 'ANY', 'BIG', 'BRO', 'BUY', 'CALM', 'CAN', 'CAP', 'ECO', 'DIET', 'DIG', 'DIM', 'DOG', 'DROP', 'EAT', 'EDIT', 'FAME', 'FAN', 'FAST', 'FAT', 'FATE', 'FIVE', 'FLOW', 'FOUR', 'FUD', 'FUN', 'GOLD', 'GOOD', 'HEAR', 'HOLD', 'HOME', 'HOPE', 'IT', 'JOB', 'JUST', 'KEY', 'KEYS', 'KNOW', 'LAWS', 'LAZY', 'LIFE', 'LOAN', 'LOVE', 'MOM', 'MOON', 'NEAR', 'NEED', 'NERD', 'NEW', 'NEXT', 'NICE', 'NINE', 'NOW', 'ONE', 'OUT', 'PLAN', 'PLAY', 'PUMP', 'ROLL', 'ROOF', 'ROOT', 'SACH', 'SAFE', 'SAIL', 'SAND', 'SALT', 'SAVE', 'SEE', 'SEED', 'SEEK', 'SIX', 'SNOW', 'SO', 'SUB', 'SUP', 'TELL', 'TEN', 'TRUE', 'TWO', 'UNIT', 'VERY', 'WELL', 'WHEN', 'WOW', 'YELL', 'YOLO']
+COMMON_SYMBOLS = ['ALL', 'AN', 'ANY', 'BIG', 'BRO', 'BUY', 'CALM', 'CAN', 'CAP', 'ECO', 'DIET', 'DIG', 'DIM', 'DOG', 'DROP', 'EAT', 'EDIT', 'EVER', 'FAME', 'FAN', 'FAST', 'FAT', 'FATE', 'FIVE', 'FLOW', 'FOUR', 'FUD', 'FUN', 'GOLD', 'GOOD', 'HAS', 'HEAR', 'HOLD', 'HOME', 'HOPE', 'IT', 'JOB', 'JUST', 'KEY', 'KEYS', 'KNOW', 'LAWS', 'LAZY', 'LIFE', 'LOAN', 'LOVE', 'MAN', 'MOM', 'MOON', 'NEAR', 'NEED', 'NERD', 'NEW', 'NEXT', 'NICE', 'NINE', 'NOW', 'ONE', 'OUT', 'PAYS', 'PLAN', 'PLAY', 'PUMP', 'ROLL', 'ROOF', 'ROOT', 'SACH', 'SAFE', 'SAIL', 'SAND', 'SALT', 'SAVE', 'SEE', 'SEED', 'SEEK', 'SIX', 'SNOW', 'SO', 'SUB', 'SUP', 'TELL', 'TEN', 'TRUE', 'TWO', 'UNIT', 'VERY', 'WELL', 'WHEN', 'WOW', 'YELL', 'YOLO']
 START_FROM = 'A'
 
 class Tor:
@@ -330,6 +330,7 @@ class REDDIT:
 		detect_cashtag = False
 		if symbol['symbol'] in COMMON_SYMBOLS:
 			query_set.insert(0, '${}'.format(symbol['symbol']))
+			# query_set.insert(0, symbol['symbol'])
 			detect_cashtag = True
 		elif len(symbol['symbol']) > 1:
 			query_set.insert(0, symbol['symbol'])
@@ -392,6 +393,14 @@ class REDDIT:
 						if symbol['symbol'].lower() in post[attr].lower() and cashtag not in post_words:
 							is_valid_post = False
 							break
+
+						# is_valid_post = False
+						# blob = TextBlob(post[attr])
+						# for word, tag in blob.tags:
+						# 	if word.lower() == symbol['symbol'].lower() and tag == 'NNP':
+						# 		is_valid_post = True
+						# 		print(word, tag)
+
 				# Append only valid posts
 				if is_valid_post:
 					new_data.append(post)
