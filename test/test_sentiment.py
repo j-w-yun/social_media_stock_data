@@ -5,7 +5,7 @@ import random
 import pandas as pd
 import numpy as np
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from textblob import TextBlob
 
 SUBREDDIT = 'wallstreetbets'
@@ -48,11 +48,9 @@ def get_social_data(symbol):
 	twitter_data['text'] = twitter_data['tweet'].astype(str)
 
 	# Convert into common date format
-	# .strftime('%Y-%m-%d')
 	submissions_data['date'] = [datetime.fromtimestamp(x) for x in submissions_data['created_utc']]
 	comments_data['date'] = [datetime.fromtimestamp(x) for x in comments_data['created_utc']]
-	twitter_data['new_date'] = pd.to_datetime(twitter_data['date'] + ' ' + twitter_data['time'], format='%Y-%m-%d %H:%M:%S')
-	twitter_data['date'] = [x for x in twitter_data['new_date']]
+	twitter_data['date'] = pd.to_datetime(twitter_data['date'] + ' ' + twitter_data['time'], format='%Y-%m-%d %H:%M:%S') + timedelta(hours=8)
 
 	# Assign score for tweets
 	twitter_data['score'] = twitter_data['likes_count'] + twitter_data['retweets_count']
@@ -72,15 +70,6 @@ def get_social_data(symbol):
 		comments_data,
 		twitter_data,
 	]
-	# data['date'] = pd.to_datetime(data['created_utc'])
-	return data
-
-def annotate(text):
-	cleaned_text = str(text)
-	# cleaned_text = cleaned_text.replace('faggot', 'guy')
-	# cleaned_text = cleaned_text.replace('retard', 'guy')
-	# cleaned_text = cleaned_text.replace('shit', 'poop')
-	return TextBlob(cleaned_text)
 
 def sample_annotate(symbol):
 	split_data = get_social_data(symbol)
@@ -105,7 +94,7 @@ def sample_annotate(symbol):
 
 	# Annotate and print
 	for _, line in sample.iterrows():
-		blob = annotate(line['text'])
+		blob = TextBlob(line['text'])
 		print()
 		print('type: {}'.format(line['type']))
 		print('date: {}'.format(line['date']))
@@ -152,6 +141,6 @@ if __name__ == '__main__':
 	else:
 		text = ' '.join(sys.argv[1:])
 		print('\n', text)
-		blob = annotate(text)
+		blob = TextBlob(text)
 		print('polarity: {}'.format(blob.sentiment.polarity))
 		print('subjectivity: {}'.format(blob.sentiment.subjectivity))
